@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { Upload, X, Camera, Image as ImageIcon, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Upload, X, Camera, Image as ImageIcon, AlertCircle, CheckCircle2, Wifi, WifiOff } from 'lucide-react';
+import { classifyImage, ApiClassificationResult, ApiError } from '../services/api';
 
 // Types for classification results
 interface ClassificationResult {
@@ -11,18 +12,26 @@ interface ClassificationResult {
 const ImageClassifier: React.FC = () => {
   const { isDarkMode } = useTheme();
   const [image, setImage] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [isClassifying, setIsClassifying] = useState(false);
   const [results, setResults] = useState<ClassificationResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sample classification results - in a real application, this would come from the ML model
-  const sampleResults: ClassificationResult[] = [
-    { className: "Parang", probability: 0.82 },
-    { className: "Mega Mendung", probability: 0.11 },
-    { className: "Kawung", probability: 0.05 },
-    { className: "Truntum", probability: 0.02 }
-  ];
+  // Monitor online status
+  React.useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
@@ -30,38 +39,119 @@ const ImageClassifier: React.FC = () => {
     
     if (!file) return;
     
+    // Validate file type
     if (!file.type.startsWith('image/')) {
-      setError('Please upload an image file');
+      setError('Please upload an image file (JPG, PNG, WEBP)');
+      return;
+    }
+    
+    // Validate file size (5MB limit)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      setError('Image size must be less than 5MB');
       return;
     }
     
     const reader = new FileReader();
     reader.onload = () => {
       setImage(reader.result as string);
+      setImageFile(file);
       setResults(null);
+    };
+    reader.onerror = () => {
+      setError('Failed to read the image file');
     };
     reader.readAsDataURL(file);
   };
 
-  const handleClassify = () => {
-    if (!image) return;
+  const handleClassify = async () => {
+    if (!imageFile || !isOnline) return;
     
     setIsClassifying(true);
     setError(null);
     
-    // Simulate API call to classification model
-    setTimeout(() => {
-      setResults(sampleResults);
+    try {
+      const apiResult: ApiClassificationResult = await classifyImage(imageFile);
+      
+      // Convert API result to our internal format
+      const classificationResults: ClassificationResult[] = [];
+      
+      // Add the main prediction
+      classificationResults.push({
+        className: apiResult.class_name,
+        probability: apiResult.confidence
+      });
+      
+      // Add other probabilities if available
+      if (apiResult.probabilities) {
+        Object.entries(apiResult.probabilities)
+          .filter(([className]) => className !== apiResult.class_name)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 3) // Take top 3 alternatives
+          .forEach(([className, probability]) => {
+            classificationResults.push({
+              className,
+              probability
+            });
+          });
+      }
+      
+      setResults(classificationResults);
+    } catch (err) {
+      console.error('Classification error:', err);
+      
+      if (err instanceof ApiError) {
+        switch (err.status) {
+          case 400:
+            setError('Invalid image format. Please try a different image.');
+            break;
+          case 413:
+            setError('Image file is too large. Please use an image smaller than 5MB.');
+            break;
+          case 429:
+            setError('Too many requests. Please wait a moment and try again.');
+            break;
+          case 500:
+            setError('Server error. Please try again later.');
+            break;
+          default:
+            setError(err.message || 'Failed to classify the image. Please try again.');
+        }
+      } else {
+        setError('An unexpected error occurred. Please check your connection and try again.');
+      }
+    } finally {
       setIsClassifying(false);
-    }, 2000);
+    }
   };
 
   const handleReset = () => {
     setImage(null);
+    setImageFile(null);
     setResults(null);
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const files = Array.from(e.dataTransfer.files);
+    const imageFile = files.find(file => file.type.startsWith('image/'));
+    
+    if (imageFile) {
+      const fakeEvent = {
+        target: { files: [imageFile] }
+      } as React.ChangeEvent<HTMLInputElement>;
+      handleFileChange(fakeEvent);
     }
   };
 
@@ -88,6 +178,16 @@ const ImageClassifier: React.FC = () => {
             Upload a photo of a batik pattern, and our advanced AI will identify it
             and provide information about its origin and cultural significance.
           </p>
+          
+          {/* Connection status indicator */}
+          <div className={`inline-flex items-center mt-4 px-3 py-1 rounded-full text-sm ${
+            isOnline 
+              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+          }`}>
+            {isOnline ? <Wifi size={16} className="mr-1" /> : <WifiOff size={16} className="mr-1" />}
+            {isOnline ? 'Connected' : 'Offline - Classification unavailable'}
+          </div>
         </div>
 
         <div className="max-w-4xl mx-auto">
@@ -100,6 +200,8 @@ const ImageClassifier: React.FC = () => {
                 } ${
                   getBorderStyle(isDarkMode, !!image, !!error)
                 }`}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
               >
                 {image ? (
                   <>
@@ -141,10 +243,13 @@ const ImageClassifier: React.FC = () => {
               <div className="flex space-x-4">
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className={`flex-1 py-3 px-4 rounded-lg flex items-center justify-center ${
-                    isDarkMode 
-                      ? 'bg-gray-800 hover:bg-gray-700 text-white' 
-                      : 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-300'
+                  disabled={!isOnline}
+                  className={`flex-1 py-3 px-4 rounded-lg flex items-center justify-center transition-colors ${
+                    !isOnline 
+                      ? 'opacity-50 cursor-not-allowed' 
+                      : isDarkMode 
+                        ? 'bg-gray-800 hover:bg-gray-700 text-white' 
+                        : 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-300'
                   }`}
                 >
                   <ImageIcon size={20} className="mr-2" />
@@ -161,10 +266,13 @@ const ImageClassifier: React.FC = () => {
 
                 <button
                   onClick={() => alert('Camera functionality would be implemented here')}
-                  className={`flex-1 py-3 px-4 rounded-lg flex items-center justify-center ${
-                    isDarkMode 
-                      ? 'bg-gray-800 hover:bg-gray-700 text-white' 
-                      : 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-300'
+                  disabled={!isOnline}
+                  className={`flex-1 py-3 px-4 rounded-lg flex items-center justify-center transition-colors ${
+                    !isOnline 
+                      ? 'opacity-50 cursor-not-allowed' 
+                      : isDarkMode 
+                        ? 'bg-gray-800 hover:bg-gray-700 text-white' 
+                        : 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-300'
                   }`}
                 >
                   <Camera size={20} className="mr-2" />
@@ -176,9 +284,9 @@ const ImageClassifier: React.FC = () => {
               {image && !results && (
                 <button
                   onClick={handleClassify}
-                  disabled={isClassifying}
+                  disabled={isClassifying || !isOnline}
                   className={`mt-4 py-3 px-4 rounded-lg flex items-center justify-center transition-colors ${
-                    isClassifying 
+                    isClassifying || !isOnline
                       ? 'bg-indigo-400 cursor-not-allowed' 
                       : 'bg-indigo-600 hover:bg-indigo-700'
                   } text-white`}
@@ -189,8 +297,10 @@ const ImageClassifier: React.FC = () => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Analyzing...
+                      Analyzing Pattern...
                     </>
+                  ) : !isOnline ? (
+                    'Offline - Cannot Classify'
                   ) : (
                     'Identify Batik Pattern'
                   )}
@@ -216,28 +326,41 @@ const ImageClassifier: React.FC = () => {
                     
                     <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-4 mb-6">
                       <div 
-                        className="bg-indigo-600 h-4 rounded-full" 
+                        className="bg-indigo-600 h-4 rounded-full transition-all duration-1000" 
                         style={{ width: `${results[0].probability * 100}%` }}
                       />
                     </div>
                     
-                    <div className="space-y-3">
-                      <p className="font-medium">Other possibilities:</p>
-                      {results.slice(1).map((result, index) => (
-                        <div key={index} className="flex items-center justify-between">
-                          <span className="text-gray-700 dark:text-gray-300">{result.className}</span>
-                          <span className="text-gray-600 dark:text-gray-400">{Math.round(result.probability * 100)}%</span>
-                        </div>
-                      ))}
-                    </div>
+                    {results.length > 1 && (
+                      <div className="space-y-3">
+                        <p className="font-medium">Other possibilities:</p>
+                        {results.slice(1).map((result, index) => (
+                          <div key={index} className="flex items-center justify-between">
+                            <span className="text-gray-700 dark:text-gray-300">{result.className}</span>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                <div 
+                                  className="bg-gray-400 h-2 rounded-full transition-all duration-1000" 
+                                  style={{ width: `${result.probability * 100}%` }}
+                                />
+                              </div>
+                              <span className="text-gray-600 dark:text-gray-400 text-sm w-10">
+                                {Math.round(result.probability * 100)}%
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   
                   <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                     <h4 className="font-semibold mb-2">What's next?</h4>
                     <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
                       <li>• View detailed information about this batik pattern</li>
-                      <li>• See examples of similar patterns</li>
+                      <li>• See examples of similar patterns in our gallery</li>
                       <li>• Learn about the cultural significance and history</li>
+                      <li>• Share your results with others</li>
                     </ul>
                   </div>
                   
@@ -263,7 +386,7 @@ const ImageClassifier: React.FC = () => {
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         1. Upload a clear image of a batik pattern<br />
                         2. Our AI analyzes the visual features<br />
-                        3. The system compares it to our database of patterns<br />
+                        3. The system compares it to our trained model<br />
                         4. Results show the most likely pattern with confidence scores
                       </p>
                     </div>
@@ -271,17 +394,31 @@ const ImageClassifier: React.FC = () => {
                     <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
                       <h4 className="font-medium mb-2">For Best Results</h4>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        • Use good lighting<br />
-                        • Capture the pattern clearly<br />
+                        • Use good lighting and clear focus<br />
+                        • Capture the pattern clearly without blur<br />
                         • Include multiple repeats of the pattern if possible<br />
-                        • Avoid reflections and shadows
+                        • Avoid reflections, shadows, and obstructions<br />
+                        • Ensure the image is under 5MB in size
+                      </p>
+                    </div>
+
+                    <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                      <h4 className="font-medium mb-2">Supported Formats</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        • JPEG (.jpg, .jpeg)<br />
+                        • PNG (.png)<br />
+                        • WebP (.webp)<br />
+                        • Maximum file size: 5MB
                       </p>
                     </div>
                   </div>
                   
                   {!image && (
                     <p className="text-center text-sm text-gray-500 italic">
-                      Upload an image to get started with the identification process
+                      {isOnline 
+                        ? "Upload an image to get started with the identification process"
+                        : "Please check your internet connection to use the classification feature"
+                      }
                     </p>
                   )}
                 </div>
