@@ -64,66 +64,51 @@ const ImageClassifier: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleClassify = async () => {
-    if (!imageFile || !isOnline) return;
-    
-    setIsClassifying(true);
-    setError(null);
-    
-    try {
-      const apiResult: ApiClassificationResult = await classifyImage(imageFile);
-      
-      // Convert API result to our internal format
-      const classificationResults: ClassificationResult[] = [];
-      
-      // Add the main prediction
-      classificationResults.push({
-        className: apiResult.class_name,
-        probability: apiResult.confidence
-      });
-      
-      // Add other probabilities if available
-      if (apiResult.probabilities) {
-        Object.entries(apiResult.probabilities)
-          .filter(([className]) => className !== apiResult.class_name)
-          .sort(([, a], [, b]) => b - a)
-          .slice(0, 3) // Take top 3 alternatives
-          .forEach(([className, probability]) => {
-            classificationResults.push({
-              className,
-              probability
-            });
-          });
+ const handleClassify = async () => {
+  if (!imageFile || !isOnline) return;
+
+  setIsClassifying(true);
+  setError(null);
+
+  try {
+    const apiResult: ApiClassificationResult = await classifyImage(imageFile);
+
+    // Convert API result to our internal format
+    const classificationResults: ClassificationResult[] = apiResult.top_5_predictions.map(item => ({
+      className: item.label,
+      probability: item.confidence,
+    }));
+
+    setResults(classificationResults);
+
+  } catch (err) {
+    console.error('Classification error:', err);
+
+    if (err instanceof ApiError) {
+      switch (err.status) {
+        case 400:
+          setError('Invalid image format. Please try a different image.');
+          break;
+        case 413:
+          setError('Image file is too large. Please use an image smaller than 5MB.');
+          break;
+        case 429:
+          setError('Too many requests. Please wait a moment and try again.');
+          break;
+        case 500:
+          setError('Server error. Please try again later.');
+          break;
+        default:
+          setError(err.message || 'Failed to classify the image. Please try again.');
       }
-      
-      setResults(classificationResults);
-    } catch (err) {
-      console.error('Classification error:', err);
-      
-      if (err instanceof ApiError) {
-        switch (err.status) {
-          case 400:
-            setError('Invalid image format. Please try a different image.');
-            break;
-          case 413:
-            setError('Image file is too large. Please use an image smaller than 5MB.');
-            break;
-          case 429:
-            setError('Too many requests. Please wait a moment and try again.');
-            break;
-          case 500:
-            setError('Server error. Please try again later.');
-            break;
-          default:
-            setError(err.message || 'Failed to classify the image. Please try again.');
-        }
-      } else {
-        setError('An unexpected error occurred. Please check your connection and try again.');
-      }
-    } finally {
-      setIsClassifying(false);
+    } else {
+      setError('An unexpected error occurred. Please check your connection and try again.');
     }
-  };
+
+  } finally {
+    setIsClassifying(false);
+  }
+};
 
   const handleReset = () => {
     setImage(null);
