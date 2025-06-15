@@ -30,7 +30,7 @@ export const classifyImage = async (imageFile: File): Promise<ApiClassificationR
     const formData = new FormData();
     formData.append('image', imageFile);
 
-    const response = await fetch(`${API_BASE_URL}/classify`, {
+    const response = await fetch(`${API_BASE_URL}/predict`, {
       method: 'POST',
       body: formData,
       headers: {
