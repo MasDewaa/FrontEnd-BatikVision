@@ -25,84 +25,7 @@ export class ApiError extends Error {
   }
 }
 
-// Mock batik patterns for demonstration
-const MOCK_BATIK_PATTERNS = [
-  'Parang Rusak',
-  'Kawung',
-  'Mega Mendung',
-  'Truntum',
-  'Sido Mukti',
-  'Sekar Jagad',
-  'Ceplok',
-  'Nitik',
-  'Tambal',
-  'Lereng'
-];
-
-// Mock classification function for demo purposes
-const mockClassifyImage = async (imageFile: File): Promise<ApiClassificationResult> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000));
-  
-  // Generate mock results
-  const mainPattern = MOCK_BATIK_PATTERNS[Math.floor(Math.random() * MOCK_BATIK_PATTERNS.length)];
-  const confidence = 0.7 + Math.random() * 0.25; // 70-95% confidence
-  
-  // Generate probabilities for other patterns
-  const probabilities: Record<string, number> = {};
-  probabilities[mainPattern] = confidence;
-  
-  // Add 2-3 other patterns with lower probabilities
-  const otherPatterns = MOCK_BATIK_PATTERNS.filter(p => p !== mainPattern)
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 3);
-  
-  let remainingProbability = 1 - confidence;
-  otherPatterns.forEach((pattern, index) => {
-    const prob = index === otherPatterns.length - 1 
-      ? remainingProbability 
-      : remainingProbability * (0.3 + Math.random() * 0.4);
-    probabilities[pattern] = Math.max(0.01, prob);
-    remainingProbability -= prob;
-  });
-  
-  return {
-    class_name: mainPattern,
-    confidence: confidence,
-    probabilities: probabilities
-  };
-};
-
-// Check if backend is available
-const checkBackendAvailability = async (): Promise<boolean> => {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-    
-    const response = await fetch(`${API_BASE_URL}/health`, {
-      method: 'GET',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    clearTimeout(timeoutId);
-    return response.ok;
-  } catch (error) {
-    return false;
-  }
-};
-
 export const classifyImage = async (imageFile: File): Promise<ApiClassificationResult> => {
-  // First check if backend is available
-  const isBackendAvailable = await checkBackendAvailability();
-  
-  if (!isBackendAvailable) {
-    console.warn('Backend service not available, using mock classification');
-    return mockClassifyImage(imageFile);
-  }
-  
   try {
     const formData = new FormData();
     formData.append('image', imageFile);
@@ -137,10 +60,9 @@ export const classifyImage = async (imageFile: File): Promise<ApiClassificationR
       throw error;
     }
     
-    // Handle network errors - fallback to mock
+    // Handle network errors
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      console.warn('Network error detected, falling back to mock classification');
-      return mockClassifyImage(imageFile);
+      throw new ApiError('Network error: Unable to connect to the classification service. Please ensure the backend API is running.');
     }
     
     throw new ApiError('An unexpected error occurred during classification');
@@ -149,16 +71,6 @@ export const classifyImage = async (imageFile: File): Promise<ApiClassificationR
 
 // Alternative endpoint for base64 images if your API supports it
 export const classifyImageBase64 = async (base64Image: string): Promise<ApiClassificationResult> => {
-  // Check if backend is available
-  const isBackendAvailable = await checkBackendAvailability();
-  
-  if (!isBackendAvailable) {
-    console.warn('Backend service not available, using mock classification');
-    // Convert base64 to a mock file for consistency
-    const mockFile = new File([''], 'image.jpg', { type: 'image/jpeg' });
-    return mockClassifyImage(mockFile);
-  }
-  
   try {
     const response = await fetch(`${API_BASE_URL}/classify-base64`, {
       method: 'POST',
@@ -192,9 +104,7 @@ export const classifyImageBase64 = async (base64Image: string): Promise<ApiClass
     }
     
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      console.warn('Network error detected, falling back to mock classification');
-      const mockFile = new File([''], 'image.jpg', { type: 'image/jpeg' });
-      return mockClassifyImage(mockFile);
+      throw new ApiError('Network error: Unable to connect to the classification service. Please ensure the backend API is running.');
     }
     
     throw new ApiError('An unexpected error occurred during classification');

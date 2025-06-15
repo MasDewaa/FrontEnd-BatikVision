@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { Upload, X, Camera, Image as ImageIcon, AlertCircle, CheckCircle2, Wifi, WifiOff, Info } from 'lucide-react';
+import { Upload, X, Camera, Image as ImageIcon, AlertCircle, CheckCircle2, Wifi, WifiOff, Server } from 'lucide-react';
 import { classifyImage, ApiClassificationResult, ApiError } from '../services/api';
 
 // Types for classification results
@@ -17,7 +17,6 @@ const ImageClassifier: React.FC = () => {
   const [results, setResults] = useState<ClassificationResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [isUsingMockService, setIsUsingMockService] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Monitor online status
@@ -58,7 +57,6 @@ const ImageClassifier: React.FC = () => {
       setImage(reader.result as string);
       setImageFile(file);
       setResults(null);
-      setIsUsingMockService(false);
     };
     reader.onerror = () => {
       setError('Failed to read the image file');
@@ -71,20 +69,9 @@ const ImageClassifier: React.FC = () => {
     
     setIsClassifying(true);
     setError(null);
-    setIsUsingMockService(false);
     
     try {
       const apiResult: ApiClassificationResult = await classifyImage(imageFile);
-      
-      // Check if we're using mock service (indicated by console warnings)
-      const originalConsoleWarn = console.warn;
-      let mockServiceUsed = false;
-      console.warn = (...args) => {
-        if (args[0]?.includes('Backend service not available') || args[0]?.includes('Network error detected')) {
-          mockServiceUsed = true;
-        }
-        originalConsoleWarn(...args);
-      };
       
       // Convert API result to our internal format
       const classificationResults: ClassificationResult[] = [];
@@ -110,10 +97,6 @@ const ImageClassifier: React.FC = () => {
       }
       
       setResults(classificationResults);
-      setIsUsingMockService(mockServiceUsed);
-      
-      // Restore console.warn
-      console.warn = originalConsoleWarn;
     } catch (err) {
       console.error('Classification error:', err);
       
@@ -147,7 +130,6 @@ const ImageClassifier: React.FC = () => {
     setImageFile(null);
     setResults(null);
     setError(null);
-    setIsUsingMockService(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -206,14 +188,6 @@ const ImageClassifier: React.FC = () => {
             {isOnline ? <Wifi size={16} className="mr-1" /> : <WifiOff size={16} className="mr-1" />}
             {isOnline ? 'Connected' : 'Offline - Classification unavailable'}
           </div>
-
-          {/* Demo mode indicator */}
-          {isUsingMockService && (
-            <div className="inline-flex items-center mt-2 px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-              <Info size={16} className="mr-1" />
-              Demo Mode - Using simulated results
-            </div>
-          )}
         </div>
 
         <div className="max-w-4xl mx-auto">
@@ -332,6 +306,30 @@ const ImageClassifier: React.FC = () => {
                   )}
                 </button>
               )}
+
+              {/* Error display */}
+              {error && (
+                <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <div className="flex items-start">
+                    <AlertCircle size={20} className="text-red-600 dark:text-red-400 mr-3 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="text-red-800 dark:text-red-200 font-medium mb-1">Classification Error</h4>
+                      <p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
+                      {error.includes('Unable to connect') && (
+                        <div className="mt-2 text-red-600 dark:text-red-400 text-sm">
+                          <p className="font-medium">Troubleshooting:</p>
+                          <ul className="list-disc list-inside mt-1 space-y-1">
+                            <li>Ensure your backend API server is running</li>
+                            <li>Check if the API URL is correct in your .env file</li>
+                            <li>Verify your internet connection</li>
+                            <li>Check if the API endpoint accepts the correct request format</li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
@@ -341,17 +339,6 @@ const ImageClassifier: React.FC = () => {
                     <CheckCircle2 className="text-green-500 mr-2" size={24} />
                     <h3 className="text-xl font-semibold">Classification Results</h3>
                   </div>
-                  
-                  {isUsingMockService && (
-                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                      <div className="flex items-center">
-                        <Info size={16} className="text-blue-600 dark:text-blue-400 mr-2" />
-                        <p className="text-sm text-blue-800 dark:text-blue-200">
-                          Demo results - Backend service not available
-                        </p>
-                      </div>
-                    </div>
-                  )}
                   
                   <div className="mb-6">
                     <p className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-1">
@@ -449,11 +436,14 @@ const ImageClassifier: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className={`p-4 rounded-lg border-l-4 border-blue-500 ${isDarkMode ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
-                      <h4 className="font-medium mb-2 text-blue-800 dark:text-blue-200">Demo Mode</h4>
-                      <p className="text-sm text-blue-700 dark:text-blue-300">
-                        If no backend service is available, the app will automatically switch to demo mode 
-                        with simulated classification results to showcase the interface and functionality.
+                    <div className={`p-4 rounded-lg border-l-4 border-orange-500 ${isDarkMode ? 'bg-orange-900/20' : 'bg-orange-50'}`}>
+                      <div className="flex items-center mb-2">
+                        <Server size={16} className="text-orange-600 dark:text-orange-400 mr-2" />
+                        <h4 className="font-medium text-orange-800 dark:text-orange-200">Backend Required</h4>
+                      </div>
+                      <p className="text-sm text-orange-700 dark:text-orange-300">
+                        This feature requires a running backend API service for image classification. 
+                        Make sure your machine learning API is running and accessible.
                       </p>
                     </div>
                   </div>
