@@ -64,7 +64,7 @@ const ImageClassifier: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
- const handleClassify = async () => {
+const handleClassify = async () => {
   if (!imageFile || !isOnline) return;
 
   setIsClassifying(true);
@@ -73,13 +73,16 @@ const ImageClassifier: React.FC = () => {
   try {
     const apiResult: ApiClassificationResult = await classifyImage(imageFile);
 
-    // Convert API result to our internal format
-    const classificationResults: ClassificationResult[] = apiResult.top_5_predictions.map(item => ({
-      className: item.label,
-      probability: item.confidence,
-    }));
+    // Konversi ke array & urutkan berdasarkan probabilitas desc
+    const probabilitiesArray = Object.entries(apiResult.probabilities)
+      .map(([label, confidence]) => ({
+        className: label,
+        probability: confidence
+      }))
+      .sort((a, b) => b.probability - a.probability)
+      .slice(0, 5); // Ambil top 5
 
-    setResults(classificationResults);
+    setResults(probabilitiesArray);
 
   } catch (err) {
     console.error('Classification error:', err);
@@ -91,6 +94,9 @@ const ImageClassifier: React.FC = () => {
           break;
         case 413:
           setError('Image file is too large. Please use an image smaller than 5MB.');
+          break;
+        case 422:
+          setError('Unprocessable image. Please check the file format.');
           break;
         case 429:
           setError('Too many requests. Please wait a moment and try again.');
@@ -109,6 +115,7 @@ const ImageClassifier: React.FC = () => {
     setIsClassifying(false);
   }
 };
+
 
   const handleReset = () => {
     setImage(null);

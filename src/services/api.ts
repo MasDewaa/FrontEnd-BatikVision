@@ -2,9 +2,11 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://batik-deploy-fastapi-production.up.railway.app';
 
 export interface ApiClassificationResult {
-  className: string;
-  probability: number;
+  class_name: string;
+  confidence: number;
+  probabilities: Record<string, number>;
 }
+
 
 export interface ApiResponse {
   success: boolean;
@@ -27,7 +29,7 @@ export class ApiError extends Error {
 export const classifyImage = async (imageFile: File): Promise<ApiClassificationResult> => {
   try {
     const formData = new FormData();
-    formData.append('image', imageFile);
+    formData.append('file', imageFile);
 
     const response = await fetch(`${API_BASE_URL}/predict`, {
       method: 'POST',
