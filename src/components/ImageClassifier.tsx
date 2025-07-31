@@ -140,10 +140,32 @@ const handleClassify = async () => {
     const imageFile = files.find(file => file.type.startsWith('image/'));
     
     if (imageFile) {
-      const fakeEvent = {
-        target: { files: [imageFile] }
-      } as React.ChangeEvent<HTMLInputElement>;
-      handleFileChange(fakeEvent);
+      // Process the file directly instead of creating a fake event
+      setError(null);
+      
+      // Validate file type
+      if (!imageFile.type.startsWith('image/')) {
+        setError('Please upload an image file (JPG, PNG, WEBP)');
+        return;
+      }
+      
+      // Validate file size (5MB limit)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (imageFile.size > maxSize) {
+        setError('Image size must be less than 5MB');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImage(reader.result as string);
+        setImageFile(imageFile);
+        setResults(null);
+      };
+      reader.onerror = () => {
+        setError('Failed to read the image file');
+      };
+      reader.readAsDataURL(imageFile);
     }
   };
 
