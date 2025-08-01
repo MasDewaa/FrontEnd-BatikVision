@@ -1,5 +1,5 @@
 // API configuration and service functions
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://batik-deploy-fastapi-production.up.railway.app';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export interface ApiClassificationResult {
   class_name: string;
