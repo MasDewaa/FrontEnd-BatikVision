@@ -1,5 +1,5 @@
 // API configuration and service functions
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://batik-fast-api.sgp.dom.my.id/predict';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://newbatikfastapi-production.up.railway.app/predict';
 
 export interface ApiClassificationResult {
   class_name: string;
@@ -109,5 +109,40 @@ export const classifyImageBase64 = async (base64Image: string): Promise<ApiClass
     }
     
     throw new ApiError('An unexpected error occurred during classification');
+  }
+};
+
+// Health check function to verify API status and model loading
+export interface HealthStatus {
+  status: string;
+  model_loaded: boolean;
+  model_path: string;
+}
+
+export const checkApiHealth = async (): Promise<HealthStatus> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/health`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new ApiError(`Health check failed: ${response.status}`, response.status);
+    }
+
+    const healthData: HealthStatus = await response.json();
+    return healthData;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new ApiError('Network error: Unable to connect to the API health endpoint');
+    }
+    
+    throw new ApiError('An unexpected error occurred during health check');
   }
 };

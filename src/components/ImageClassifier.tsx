@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { Upload, X, Camera, Image as ImageIcon, AlertCircle, CheckCircle2, Wifi, WifiOff, Server } from 'lucide-react';
-import { classifyImage, ApiClassificationResult, ApiError } from '../services/api';
+import { classifyImage, checkApiHealth, ApiClassificationResult, ApiError, HealthStatus } from '../services/api';
 
 // Types for classification results
 interface ClassificationResult {
@@ -17,15 +17,35 @@ const ImageClassifier: React.FC = () => {
   const [results, setResults] = useState<ClassificationResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [apiHealth, setApiHealth] = useState<HealthStatus | null>(null);
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Monitor online status
+  // Monitor online status and API health
   React.useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+
+    // Check API health on component mount
+    const checkHealth = async () => {
+      if (navigator.onLine) {
+        setIsCheckingHealth(true);
+        try {
+          const health = await checkApiHealth();
+          setApiHealth(health);
+        } catch (error) {
+          console.error('Health check failed:', error);
+          setApiHealth(null);
+        } finally {
+          setIsCheckingHealth(false);
+        }
+      }
+    };
+
+    checkHealth();
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -193,14 +213,40 @@ const handleClassify = async () => {
             and provide information about its origin and cultural significance.
           </p>
           
-          {/* Connection status indicator */}
-          <div className={`inline-flex items-center mt-4 px-3 py-1 rounded-full text-sm ${
-            isOnline 
-              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-          }`}>
-            {isOnline ? <Wifi size={16} className="mr-1" /> : <WifiOff size={16} className="mr-1" />}
-            {isOnline ? 'Connected' : 'Offline - Classification unavailable'}
+          {/* Connection and API status indicators */}
+          <div className="flex flex-wrap justify-center gap-2 mt-4">
+            {/* Connection status */}
+            <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
+              isOnline 
+                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+            }`}>
+              {isOnline ? <Wifi size={16} className="mr-1" /> : <WifiOff size={16} className="mr-1" />}
+              {isOnline ? 'Connected' : 'Offline'}
+            </div>
+
+            {/* API Health status */}
+            {isOnline && (
+              <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
+                isCheckingHealth
+                  ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                  : apiHealth?.status === 'healthy'
+                    ? apiHealth.model_loaded
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                    : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+              }`}>
+                <Server size={16} className="mr-1" />
+                {isCheckingHealth 
+                  ? 'Checking API...' 
+                  : apiHealth?.status === 'healthy'
+                    ? apiHealth.model_loaded
+                      ? 'Model Ready'
+                      : 'Model Loading...'
+                    : 'API Unavailable'
+                }
+              </div>
+            )}
           </div>
         </div>
 
@@ -294,32 +340,34 @@ const handleClassify = async () => {
                 </button>
               </div>
 
-              {/* Classify button */}
-              {image && !results && (
-                <button
-                  onClick={handleClassify}
-                  disabled={isClassifying || !isOnline}
-                  className={`mt-4 py-3 px-4 rounded-lg flex items-center justify-center transition-colors ${
-                    isClassifying || !isOnline
-                      ? 'bg-indigo-400 cursor-not-allowed' 
-                      : 'bg-indigo-600 hover:bg-indigo-700'
-                  } text-white`}
-                >
-                  {isClassifying ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Analyzing Pattern...
-                    </>
-                  ) : !isOnline ? (
-                    'Offline - Cannot Classify'
-                  ) : (
-                    'Identify Batik Pattern'
-                  )}
-                </button>
-              )}
+                             {/* Classify button */}
+               {image && !results && (
+                 <button
+                   onClick={handleClassify}
+                   disabled={isClassifying || !isOnline || (apiHealth ? !apiHealth.model_loaded : false)}
+                   className={`mt-4 py-3 px-4 rounded-lg flex items-center justify-center transition-colors ${
+                     isClassifying || !isOnline || (apiHealth ? !apiHealth.model_loaded : false)
+                       ? 'bg-indigo-400 cursor-not-allowed' 
+                       : 'bg-indigo-600 hover:bg-indigo-700'
+                   } text-white`}
+                 >
+                   {isClassifying ? (
+                     <>
+                       <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                       </svg>
+                       Analyzing Pattern...
+                     </>
+                   ) : !isOnline ? (
+                     'Offline - Cannot Classify'
+                   ) : apiHealth && !apiHealth.model_loaded ? (
+                     'Model Loading...'
+                   ) : (
+                     'Identify Batik Pattern'
+                   )}
+                 </button>
+               )}
 
               {/* Error display */}
               {error && (
