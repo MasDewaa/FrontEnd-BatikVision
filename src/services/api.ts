@@ -49,13 +49,39 @@ export const classifyImage = async (imageFile: File): Promise<ApiClassificationR
       );
     }
 
-    const result: ApiResponse = await response.json();
+    const result = await response.json();
+    console.log('API Response:', result); // Debug log
     
-    if (!result.success || !result.data) {
-      throw new ApiError(result.error || 'Classification failed');
+    // Handle different response formats
+    if (result.success === false) {
+      throw new ApiError(result.error || result.message || 'Classification failed');
     }
-
-    return result.data;
+    
+    // Check if the response has the expected format
+    if (result.data) {
+      return result.data;
+    }
+    
+    // If no data field, check if the response itself is the classification result
+    if (result.class_name && result.confidence && result.probabilities) {
+      return result as ApiClassificationResult;
+    }
+    
+    // If response has probabilities directly
+    if (result.probabilities && typeof result.probabilities === 'object') {
+      // Find the class with highest probability
+      const entries = Object.entries(result.probabilities);
+      const sortedEntries = entries.sort(([,a], [,b]) => (b as number) - (a as number));
+      const [topClass, topConfidence] = sortedEntries[0];
+      
+      return {
+        class_name: topClass,
+        confidence: topConfidence as number,
+        probabilities: result.probabilities
+      };
+    }
+    
+    throw new ApiError('Invalid response format from API');
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;
