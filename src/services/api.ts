@@ -1,5 +1,5 @@
 // API configuration and service functions
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://newbatikfastapi-production.up.railway.app/predict';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://batik-deploy-fastapi-production-c83f.up.railway.app';
 
 export interface ApiClassificationResult {
   class_name: string;
@@ -63,7 +63,7 @@ export const classifyImage = async (imageFile: File): Promise<ApiClassificationR
     
     // Handle network errors
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new ApiError('Network error: Unable to connect to the classification service. Please ensure the backend API is running.');
+      throw new ApiError('Network error: Unable to connect to the classification service. This may be due to CORS issues or the API being unavailable. Please check if the backend API is running and accessible.');
     }
     
     throw new ApiError('An unexpected error occurred during classification');
@@ -140,7 +140,7 @@ export const checkApiHealth = async (): Promise<HealthStatus> => {
     }
     
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new ApiError('Network error: Unable to connect to the API health endpoint');
+      throw new ApiError('Network error: Unable to connect to the API health endpoint. This may be due to CORS issues or the API being unavailable.');
     }
     
     throw new ApiError('An unexpected error occurred during health check');

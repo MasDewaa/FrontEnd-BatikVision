@@ -377,17 +377,19 @@ const handleClassify = async () => {
                     <div>
                       <h4 className="text-red-800 dark:text-red-200 font-medium mb-1">Classification Error</h4>
                       <p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
-                      {error.includes('Unable to connect') && (
-                        <div className="mt-2 text-red-600 dark:text-red-400 text-sm">
-                          <p className="font-medium">Troubleshooting:</p>
-                          <ul className="list-disc list-inside mt-1 space-y-1">
-                            <li>Ensure your backend API server is running</li>
-                            <li>Check if the API URL is correct in your .env file</li>
-                            <li>Verify your internet connection</li>
-                            <li>Check if the API endpoint accepts the correct request format</li>
-                          </ul>
-                        </div>
-                      )}
+                                             {(error.includes('Unable to connect') || error.includes('CORS')) && (
+                         <div className="mt-2 text-red-600 dark:text-red-400 text-sm">
+                           <p className="font-medium">Troubleshooting:</p>
+                           <ul className="list-disc list-inside mt-1 space-y-1">
+                             <li>Ensure your backend API server is running</li>
+                             <li>Check if the API URL is correct in your .env file</li>
+                             <li>Verify your internet connection</li>
+                             <li>Check if the API endpoint accepts the correct request format</li>
+                             <li>If you see CORS errors, the backend needs to allow requests from your frontend domain</li>
+                             <li>Contact the API administrator to configure CORS headers</li>
+                           </ul>
+                         </div>
+                       )}
                     </div>
                   </div>
                 </div>
