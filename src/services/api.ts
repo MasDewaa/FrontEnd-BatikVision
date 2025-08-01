@@ -1,5 +1,5 @@
 // API configuration and service functions
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://newbatikfastapi-production.up.railway.app/';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://newbatikfastapi-production.up.railway.app';
 
 export interface ApiClassificationResult {
   class_name: string;
