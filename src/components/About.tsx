@@ -65,7 +65,7 @@ const About: React.FC = () => {
                 </li>
                 <li className="flex items-start">
                   <span className="mr-2">•</span>
-                  <span>Hyperparameter optimization improved model accuracy by 15-20%</span>
+                  <span>Hyperparameter optimization improved model accuracy by 1.1%-3.3%</span>
                 </li>
                 <li className="flex items-start">
                   <span className="mr-2">•</span>
@@ -73,7 +73,7 @@ const About: React.FC = () => {
                 </li>
                 <li className="flex items-start">
                   <span className="mr-2">•</span>
-                  <span>The resulting system can identify over 30 different batik patterns with 92% accuracy</span>
+                  <span>The resulting system can identify over 30 different batik patterns with 96% accuracy</span>
                 </li>
               </ul>
             </div>

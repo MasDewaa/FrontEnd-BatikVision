@@ -9,14 +9,17 @@ const Hero: React.FC = () => {
     <section className="relative h-[90vh] flex items-center justify-center overflow-hidden">
       {/* Background pattern */}
       <div 
-        className="absolute inset-0 opacity-10"
+        className="absolute inset-0 opacity-15"
         style={{
-          backgroundImage: `url('https://images.pexels.com/photos/1561011/pexels-photo-1561011.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')`,
+          backgroundImage: `url('https://images.pexels.com/photos/6157049/pexels-photo-6157049.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          filter: 'blur(3px)'
+          filter: 'blur(2px)'
         }}
       />
+      
+      {/* Additional overlay for better text readability */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-black/20" />
       
       {/* Content */}
       <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
