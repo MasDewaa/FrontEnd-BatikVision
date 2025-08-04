@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { ChevronLeft, ChevronRight, Info, Search, Filter } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 
 // Batik data based on the files in Batik Nitik 960 folder - All 60 classes
 const batikData = [
@@ -614,16 +614,23 @@ const Gallery: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [currentImage, setCurrentImage] = useState<'A' | 'B'>('A');
+  const [displayCount, setDisplayCount] = useState(12); // Show 12 items initially
   
   const handlePrev = () => {
     if (selectedBatik === null) return;
-    setSelectedBatik(prev => (prev === 0 ? batikData.length - 1 : prev - 1));
+    setSelectedBatik(prev => {
+      if (prev === null) return 0;
+      return prev === 0 ? displayedBatik.length - 1 : prev - 1;
+    });
     setCurrentImage('A');
   };
   
   const handleNext = () => {
     if (selectedBatik === null) return;
-    setSelectedBatik(prev => (prev === batikData.length - 1 ? 0 : prev + 1));
+    setSelectedBatik(prev => {
+      if (prev === null) return 0;
+      return prev === displayedBatik.length - 1 ? 0 : prev + 1;
+    });
     setCurrentImage('A');
   };
 
@@ -633,6 +640,23 @@ const Gallery: React.FC = () => {
     const matchesCategory = selectedCategory === 'All' || batik.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const displayedBatik = filteredBatik.slice(0, displayCount);
+  const hasMore = displayCount < filteredBatik.length;
+  const hasLess = displayCount > 12;
+
+  const handleViewMore = () => {
+    setDisplayCount(prev => Math.min(prev + 12, filteredBatik.length));
+  };
+
+  const handleViewLess = () => {
+    setDisplayCount(12);
+  };
+
+  // Reset display count when search or filter changes
+  React.useEffect(() => {
+    setDisplayCount(12);
+  }, [searchTerm, selectedCategory]);
 
   return (
     <section id="gallery" className="py-16">
@@ -686,13 +710,16 @@ const Gallery: React.FC = () => {
         {/* Results Count */}
         <div className="text-center mb-8">
           <p className="text-gray-600 dark:text-gray-400">
-            Showing {filteredBatik.length} of {batikData.length} patterns
+            Showing {displayedBatik.length} of {filteredBatik.length} patterns
+            {filteredBatik.length !== batikData.length && (
+              <span className="text-sm text-gray-500"> (filtered from {batikData.length} total)</span>
+            )}
           </p>
         </div>
 
         {/* Gallery Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredBatik.map((batik, index) => (
+          {displayedBatik.map((batik, index) => (
             <div 
               key={batik.id}
               className={`rounded-xl overflow-hidden cursor-pointer transform transition-all duration-300 hover:-translate-y-2 ${
@@ -726,6 +753,38 @@ const Gallery: React.FC = () => {
           ))}
         </div>
 
+        {/* View More/Less Buttons */}
+        {(hasMore || hasLess) && (
+          <div className="flex justify-center mt-8 gap-4">
+            {hasMore && (
+              <button
+                onClick={handleViewMore}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
+                  isDarkMode 
+                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                }`}
+              >
+                <ChevronDown size={20} />
+                View More ({filteredBatik.length - displayCount} remaining)
+              </button>
+            )}
+            {hasLess && (
+              <button
+                onClick={handleViewLess}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
+                  isDarkMode 
+                    ? 'bg-gray-700 hover:bg-gray-600 text-white' 
+                    : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                }`}
+              >
+                <ChevronUp size={20} />
+                View Less
+              </button>
+            )}
+          </div>
+        )}
+
         {/* No Results Message */}
         {filteredBatik.length === 0 && (
           <div className="text-center py-12">
@@ -745,8 +804,8 @@ const Gallery: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2">
                 <div className="h-64 lg:h-auto relative">
                   <img 
-                    src={currentImage === 'A' ? filteredBatik[selectedBatik].imageA : filteredBatik[selectedBatik].imageB} 
-                    alt={filteredBatik[selectedBatik].name}
+                    src={currentImage === 'A' ? displayedBatik[selectedBatik].imageA : displayedBatik[selectedBatik].imageB} 
+                    alt={displayedBatik[selectedBatik].name}
                     className="w-full h-full object-cover" 
                   />
                   <button 
@@ -787,14 +846,14 @@ const Gallery: React.FC = () => {
                   </div>
                 </div>
                 <div className="p-6 overflow-y-auto max-h-96 lg:max-h-none">
-                  <h3 className="text-2xl font-serif font-bold mb-2">{filteredBatik[selectedBatik].name}</h3>
-                  <p className="text-sm text-indigo-600 dark:text-indigo-400 mb-2">Origin: {filteredBatik[selectedBatik].origin}</p>
+                  <h3 className="text-2xl font-serif font-bold mb-2">{displayedBatik[selectedBatik].name}</h3>
+                  <p className="text-sm text-indigo-600 dark:text-indigo-400 mb-2">Origin: {displayedBatik[selectedBatik].origin}</p>
                   <span className="inline-block mb-4 px-3 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 rounded-full text-sm">
-                    {filteredBatik[selectedBatik].category}
+                    {displayedBatik[selectedBatik].category}
                   </span>
                   <div className="mb-6">
                     <h4 className="text-lg font-semibold mb-2">Description</h4>
-                    <p className="text-gray-700 dark:text-gray-300">{filteredBatik[selectedBatik].description}</p>
+                    <p className="text-gray-700 dark:text-gray-300">{displayedBatik[selectedBatik].description}</p>
                   </div>
                   <div>
                     <h4 className="text-lg font-semibold mb-2">Cultural Significance</h4>
