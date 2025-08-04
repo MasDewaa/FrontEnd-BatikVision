@@ -340,7 +340,7 @@ const handleClassify = async () => {
                 </button>
               </div>
 
-                             {/* Classify button */}
+                              {/* Classify button */}
                {image && !results && (
                  <button
                    onClick={handleClassify}
