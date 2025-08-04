@@ -26,11 +26,12 @@ const Header: React.FC = () => {
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between py-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center">
-              <span className="text-white font-semibold">B</span>
-            </div>
-            <h1 className="text-2xl font-serif font-bold">BatikVision</h1>
+          <div className="flex items-center space-x-3">
+            <img 
+              src="/logo.svg" 
+              alt="BatikVision Logo" 
+              className="h-12 w-auto"
+            />
           </div>
 
           {/* Desktop Navigation */}
