@@ -7,6 +7,7 @@ function App() {
   return (
     <ThemeProvider>
       <Layout>
+        
         <HomePage />
       </Layout>
     </ThemeProvider>
